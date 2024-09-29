@@ -2,8 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import {z} from "zod";
 import {prismaClient} from "../../lib/db";
 
+// @ts-ignore
+import youtubesearchapi from "youtube-search-api"
 
-const YT_REGEX = new RegExp("^https:\/\/www.youtube.com\/watch\?v=[\w-]{11}$");
+
+const YT_REGEX = new RegExp(/^(?:(?:https?:)?\/\/)?(?:www\.)?(?:m\.)?(?:youtu(?:be)?\.com\/(?:v\/|embed\/|watch(?:\/|\?v=))|youtu\.be\/)((?:\w|-){11})(?:\S+)?$/);
 
 const CreateStreamSchema = z.object({
     creatorId: z.string(),
@@ -14,7 +17,7 @@ const CreateStreamSchema = z.object({
 export async function POST(req: NextRequest) {
     try{
         const data = CreateStreamSchema.parse(await req.json());
-        const isYT = YT_REGEX.test(data.url);
+        const isYT = data.url.match(YT_REGEX)
         if(!isYT){
             return NextResponse.json({
                 msg: "Invalid URL"
@@ -24,20 +27,44 @@ export async function POST(req: NextRequest) {
         }
 
         const extractedId = data.url.split("?v=")[1];
-        await prismaClient.stream.create({
+        const res = await youtubesearchapi.GetVideoDetails(extractedId);
+        const thumbnails = res.thumbnail.thumbnails;
+        thumbnails.sort((a: {width: number}, b: {width: number}) => a.width < b.width ? 1 : -1);
+
+        const stream = await prismaClient.stream.create({
             data:{
-                type: "Youtube",
-                extractedId,
+                userId: data.creatorId,
                 url: data.url,
-                userId: data.creatorId
+                extractedId,
+                type: "Youtube",
+                title: res.title ?? "Cant find video",
+                smallImg: (thumbnails.length >1 ? thumbnails[thumbnails.length-2].url : thumbnails[thumbnails.length-1].url) ?? "",
+                bigImg: thumbnails[thumbnails.length-1].url ?? ""
             }
+        });
+
+        return NextResponse.json({
+            msg: "Stream added",
+            id: stream.id
         })
 
     }catch(e){
+        console.log(e)
         return NextResponse.json({
             msg: "Error while adding stream"
         }, {
             status: 411
         })
     }
+}
+
+
+export async function GET(req: NextRequest) {
+    const creatorId = req.nextUrl.searchParams.get("creatorId");
+    const streams = await prismaClient.stream.findMany({
+        where: {
+            userId: creatorId ?? ""
+        }
+    })  
+    return NextResponse.json({streams})
 }

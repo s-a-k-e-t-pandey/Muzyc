@@ -17,8 +17,7 @@ model User {
   id    String  @id @default(uuid())
   email String  @unique
   provider    Provider
-  role        Role
-  streams     Stream[]
+  streams     Stream[] 
   upvotes     Upvote[]
 }
 
@@ -27,6 +26,9 @@ model Stream {
   type      StreamType
   active    Boolean  @default(true)
   extractedId String?
+  title     String   @default("")
+  bigImg    String   @default("")
+  smallImg  String   @default("")
   url       String
   upVotes   Upvote[]
   userId    String
@@ -38,18 +40,13 @@ model Upvote {
   streamId  String
   userId    String
   user      User     @relation(fields: [userId], references: [id])  
-  stream    Stream   @relation(fields: [streamId], references: [id])
+  stream    Stream   @relation(fields: [streamId], references: [id], onDelete: Cascade)
   @@unique([streamId, userId])
 }
 
 enum StreamType {
   Youtube
   Spotify
-}
-
-enum Role {
-  Admin
-  User
 }
 
 enum Provider {
