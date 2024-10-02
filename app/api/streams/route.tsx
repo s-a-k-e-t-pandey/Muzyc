@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import {z} from "zod";
-import {prismaClient} from "../../lib/db";
+import prismaClient from "@/lib/db";
+import { YT_REGEX } from "@/lib/utils";
 
 // @ts-ignore
 import youtubesearchapi from "youtube-search-api"
 
-
-const YT_REGEX = new RegExp(/^(?:(?:https?:)?\/\/)?(?:www\.)?(?:m\.)?(?:youtu(?:be)?\.com\/(?:v\/|embed\/|watch(?:\/|\?v=))|youtu\.be\/)((?:\w|-){11})(?:\S+)?$/);
 
 const CreateStreamSchema = z.object({
     creatorId: z.string(),
