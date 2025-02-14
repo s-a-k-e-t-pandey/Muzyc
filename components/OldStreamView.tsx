@@ -5,10 +5,12 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { ChevronUp, ChevronDown, Share2, Play, Trash2, X, MessageCircle, Instagram, Twitter} from "lucide-react";
 import { toast } from "sonner";
-import AppBar from "./AppBar";
+import {Appbar} from "./AppBar";
 import LiteYouTubeEmbed from "react-lite-youtube-embed";
 import "react-lite-youtube-embed/dist/LiteYouTubeEmbed.css";
 import { YT_REGEX } from "../lib/utils";
+
+// @ts-ignore
 import YouTubePlayer from "youtube-player";
 import { useSession } from "next-auth/react";
 import type { Session } from "next-auth";
@@ -286,7 +288,7 @@ export default function StreamView({
 
   return (
     <div className="flex flex-col min-h-screen bg-gradient-to-b from-gray-900 to-black text-gray-200">
-      <AppBar />
+      <Appbar />
       <div className='mx-auto text-2xl bg-gradient-to-r rounded-lg from-indigo-600 to-violet-800 font-bold'>
             {spaceName}
             </div>

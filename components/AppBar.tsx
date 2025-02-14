@@ -5,64 +5,109 @@ import { useRouter } from "next/navigation";
 import { ThemeSwitcher } from "./ThemeSwitcher";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import Link from "next/link";
+import { PiMusicNoteFill } from "react-icons/pi";
+import { motion } from "framer-motion";
 
-
-export function Appbar({ showThemeSwitch = true , isSpectator=false }) {
+export function Appbar({ showThemeSwitch = true, isSpectator = false }) {
   const session = useSession();
   const router = useRouter();
 
   return (
-    <div className="flex justify-between px-5 py-4 md:px-10 xl:px-20">
-      <div
-        onClick={() => {
-          router.push("/home");
-        }}
-        className={`flex flex-col justify-center text-lg font-bold hover:cursor-pointer ${showThemeSwitch ? "" : "text-white"}`}
+    <motion.div 
+      initial={{ y: -20, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      className="flex justify-between items-center h-full w-full"
+    >
+      <motion.div
+        whileHover={{ scale: 1.05 }}
+        onClick={() => router.push("/")}
+        className="flex flex-row items-center justify-center space-x-2 hover:cursor-pointer"
       >
-        Muzer
-      </div>
-      <div className="flex items-center gap-x-2">
-        {isSpectator && <WalletMultiButton/>}
-        {session.data?.user && (
-          <Button
-            className="bg-purple-600 text-white hover:bg-purple-700"
-            onClick={() =>
-              signOut({
-                callbackUrl: "/",
-              })
-            }
+        <span className="text-3xl font-bold bg-gradient-to-r from-purple-500 via-cyan-400 to-purple-500 bg-clip-text text-transparent">
+          Muzyc
+        </span>
+        <div className="flex items-center">
+          <motion.div
+            animate={{
+              rotate: [0, 10, -10, 0],
+              scale: [1, 1.1, 1],
+            }}
+            transition={{
+              duration: 2,
+              repeat: Infinity,
+              repeatType: "reverse",
+            }}
           >
-            Logout
-          </Button>
+            <PiMusicNoteFill className="text-2xl text-cyan-400" />
+          </motion.div>
+          <motion.div
+            animate={{
+              rotate: [0, -10, 10, 0],
+              scale: [1, 1.1, 1],
+            }}
+            transition={{
+              duration: 2,
+              repeat: Infinity,
+              repeatType: "reverse",
+              delay: 0.5,
+            }}
+          >
+            <PiMusicNoteFill className="text-lg text-purple-500" />
+          </motion.div>
+        </div>
+      </motion.div>
+
+      <div className="flex items-center gap-x-4">
+        {isSpectator && (
+          <motion.div whileHover={{ scale: 1.05 }}>
+            <WalletMultiButton />
+          </motion.div>
         )}
-        {!session.data?.user && (
-          <div className="space-x-3">
+        
+        {session.data?.user ? (
+          <motion.div whileHover={{ scale: 1.05 }}>
             <Button
-              className="bg-purple-600 text-white hover:bg-purple-700"
-              onClick={() => router.push("/auth")}
+              className="bg-gradient-to-r from-purple-600 to-cyan-500 text-white hover:opacity-90 rounded-full px-6"
+              onClick={() => signOut({ callbackUrl: "/" })}
             >
-              Signin
+              Logout
             </Button>
-            <Link
-              href={{
-                pathname: "/auth",
-                query: {
-                  authType: "signUp",
-                },
-              }}
-            >
+          </motion.div>
+        ) : (
+          <div className="space-x-3">
+            <motion.div whileHover={{ scale: 1.05 }} className="inline-block">
               <Button
-                variant={"ghost"}
-                className="text-white hover:bg-white/10"
+                className="bg-gradient-to-r from-purple-600 to-cyan-500 text-white hover:opacity-90 rounded-full px-6"
+                onClick={() => router.push("/auth")}
               >
-                Signup
+                Signin
               </Button>
-            </Link>
+            </motion.div>
+            
+            <motion.div whileHover={{ scale: 1.05 }} className="inline-block">
+              <Link
+                href={{
+                  pathname: "/auth",
+                  query: { authType: "signUp" },
+                }}
+              >
+                <Button
+                  variant="ghost"
+                  className="text-white hover:bg-white/10 rounded-full px-6 border border-purple-500/30"
+                >
+                  Signup
+                </Button>
+              </Link>
+            </motion.div>
           </div>
         )}
         
-        {showThemeSwitch && <ThemeSwitcher />}
+        {showThemeSwitch && (
+          <motion.div whileHover={{ scale: 1.05 }}>
+            <ThemeSwitcher />
+          </motion.div>
+        )}
       </div>
-    </div>
+    </motion.div>
   );
 }

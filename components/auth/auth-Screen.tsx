@@ -3,7 +3,6 @@ import { useState } from "react";
 import { SignInFlow } from "@/types/auth-types";
 import SigninCard from "./sign-in-card";
 import SignupCard from "./sign-up-card";
-import { Sign } from "crypto";
 
 
 export default function AuthScreen({authType} : {authType: SignInFlow}){

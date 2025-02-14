@@ -1,7 +1,7 @@
 import GitHubProvider from "next-auth/providers/github";
 import prismaClient from "@/lib/db";
 import Credentials from "next-auth/providers/credentials";
-import { emailSchema, passwordSchema } from "@/Schema/Credentials-schema";
+import { emailSchema, passwordSchema } from "@/schema/Credentials-schema";
 import bcrypt from "bcryptjs";
 import { JWT } from "next-auth/jwt";
 import { NextAuthOptions, Session } from "next-auth";
@@ -122,7 +122,7 @@ export const authOptions = {
         async signIn({ account, profile }) {
 
             try {
-              if (account?.provider === "google") {
+              if (account?.provider === "GitHub") {
       
                 const user = await prismaClient.user.findUnique({
                   where: {

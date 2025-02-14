@@ -1,11 +1,11 @@
+import { authOptions } from "@/lib/auth-options";
 import prismaClient from "@/lib/db";
 import { getServerSession } from "next-auth";
-import { NextResponse } from "next/server";
-import { AuthOptions } from "next-auth";
+import { NextRequest, NextResponse } from "next/server";
 
 
-export async function GET(){
-    const session = await getServerSession(authOptions());
+export async function GET(req: NextRequest){
+    const session = await getServerSession(authOptions);
     
     if(!session?.user.id){
         return NextResponse.json({
@@ -17,36 +17,57 @@ export async function GET(){
 
     const user  = session.user;
     const spaceId = req.nextUrl.searchParams.get("spaceId");
-    const mostUpvoted = prismaClient.stream.findFirst({
-        where: {
-            userId: user.id
-        },
-        orderBy: {
-            upVotes: {
-                _count: "desc"
+
+    try{
+
+        const mostUpvotedStream = await prismaClient.stream.findFirst({
+            where: {
+                userId: user.id,
+                played: true,
+                active: true,
+            },
+            orderBy: {
+                upvotes: {
+                    _count: "desc"
+                }
             }
-        }
-    })
+        });
+        
+        await Promise.all([
+            prismaClient.currentStream.upsert({
+                where: {
+                    spaceId: spaceId as string,
+                },
+                update: {
+                    userId: user.id,
+                    streamId : mostUpvotedStream?.id,
+                    spaceId: spaceId as string,
+                },
+                create: {
+                    userId: user.id,
+                    streamId: mostUpvotedStream?.id,
+                    spaceId: spaceId as string,
+                }
+            }),
+            prismaClient.stream.update({
+                where: {
+                    id: mostUpvotedStream?.id,
+                },
+                data: {
+                    played: false,
+                    playedTs: new Date(),
+                }
+            })
+        ])
 
-    await Promise.all([prismaClient.currentStream.upsert({
-        where: {
-            userId: user.id
-        },
-        update: {
-            streamId : mostUpvoted?.id
-        },
-        create: {
-            userId: user.id,
-            streamId : mostUpvoted?.id
-        }
-    }), prismaClient.currentStream.delete({
-        where: {
-            streamId: mostUpvoted?.id
-        }
-    }) 
-    ])
-
-    return NextResponse.json({
-        stream: mostUpvoted
-    })
+        return NextResponse.json({
+            stream: mostUpvotedStream
+        })
+    }catch(error: any){
+        return NextResponse.json(
+            { success: false, message: `An unexpected error occurred: ${error.message}` },
+            { status: 500 }
+        );
+    }
+    
 }
