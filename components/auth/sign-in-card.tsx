@@ -1,8 +1,8 @@
 "use client"
 import { SignInFlow } from "@/types/auth-types";
 import { signIn } from "next-auth/react";
-import { useRouter } from "next/router";
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { TriangleAlert } from "lucide-react";
 import { Input } from "../ui/input";
@@ -21,81 +21,70 @@ export default function SigninCard({setFormType: setState}: SigninCardProps){
   const [password, setPassword] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
+  const [mounted, setMounted] = useState(false);
   const router = useRouter();
 
-  const signInWithProvider = async (provider: "github" | "credentials") => {
-    try {
-      if(provider === "credentials"){
-        const res = signIn(provider, {
-          redirect: false,
-          callbackUrl: "/home",
-        });
-        res.then((res)=>{
-          if(res?.error){
-            setError(res.error);
-          }
-          if(!res?.error){
-            router.push("/");
-          }
-          setPending(false);
-        });
-      }
-      if(provider === "github"){
-        const res = signIn(provider, {
-          redirect: false,
-          callbackUrl: "/home",
-        });
-        res.then((res)=>{
-          if(res?.error){
-            setError(res.error);
-          }
-          if(!res?.error){
-            router.push("/");
-          }
-          setPending(false);
-        })
-      }
-    }catch(e){
-      console.error(e);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const handleAuthSuccess = () => {
+    if (mounted) {
+      router.push("/home");
+      router.refresh();
     }
   };
 
+  const signInWithProvider = async (provider: "github" | "credentials") => {
+    try {
+      setPending(true);
+      const res = await signIn(provider, {
+        redirect: false,
+        callbackUrl: "/home",
+        ...(provider === "credentials" && { email, password }),
+      });
 
-  const handlerCredentialsSignin = (e: React.FormEvent<HTMLFormElement>)=>{
-    e.preventDefault();
-    setError("");
-    setPending(true);
-    signInWithProvider("credentials");
+      if (res?.error) {
+        setError(res.error);
+      } else {
+        handleAuthSuccess();
+      }
+    } catch (e) {
+      console.error(e);
+      setError("An unexpected error occurred");
+    } finally {
+      setPending(false);
+    }
   };
 
-  const handlerGithubSignin = (provider: "github")=>{
+  const handlerCredentialsSignin = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
     setError("");
-    setPending(true);
-    signInWithProvider("github");
+    await signInWithProvider("credentials");
+  };
+
+  const handlerGithubSignin = async () => {
+    setError("");
+    await signInWithProvider("github");
   };
   
 
   return (
-    <Card className="h-full w-full border-purple-600 bg-gray-800 bg-opacity-50 p-8">
-      <CardHeader className="w-full">
-        <CardTitle className="text-center text-3xl font-bold text-white">
-          Login to Muzer
-        </CardTitle>
-      </CardHeader>
-      {!!error && (
-        <div className="mb-6 flex w-full items-center gap-x-2 rounded-md bg-destructive p-3 text-sm text-white">
-          <TriangleAlert className="size-4 shrink-0" />
-          <p>{error}</p>
-        </div>
-      )}
-      <CardContent className="space-y-6 px-0 pb-0">
+    <Card className="border-none bg-[#161b22]/50 backdrop-blur-md shadow-xl">
+      <CardContent className="space-y-6 p-6">
+        {!!error && (
+          <div className="flex items-center gap-x-2 rounded-md bg-red-500/10 p-3 text-sm text-red-400">
+            <TriangleAlert className="h-4 w-4" />
+            <p>{error}</p>
+          </div>
+        )}
         <form onSubmit={handlerCredentialsSignin} className="space-y-4">
           <Input
             disabled={pending}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="Email"
-            className="border-gray-400 bg-transparent text-white placeholder:text-gray-400 focus-visible:ring-purple-600 focus-visible:ring-offset-0"
+            className="border-gray-700 bg-gray-800/50 text-white placeholder:text-gray-400 focus-visible:ring-[#00b894] focus-visible:ring-offset-0"
             type="email"
             required
           />
@@ -104,40 +93,38 @@ export default function SigninCard({setFormType: setState}: SigninCardProps){
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="Password"
-            className="border-gray-400 bg-transparent text-white placeholder:text-gray-400 focus-visible:ring-purple-600 focus-visible:ring-offset-0"
+            className="border-gray-700 bg-gray-800/50 text-white placeholder:text-gray-400 focus-visible:ring-[#00b894] focus-visible:ring-offset-0"
             type="password"
             required
           />
           <Button
             disabled={pending}
             type="submit"
-            className="w-full bg-purple-600 hover:bg-purple-700"
-            size={"lg"}
+            className="w-full bg-gradient-to-r from-[#00b894] to-[#4fd1c5] hover:from-[#00b894]/90 hover:to-[#4fd1c5]/90 transition-all duration-300"
+            size="lg"
           >
             Continue
           </Button>
         </form>
-        <Separator className="bg-gradient-to-r from-gray-800 via-neutral-500 to-gray-800" />
-        <div className="flex flex-col items-center gap-y-2.5">
+        <Separator className="bg-gray-700" />
+        <div className="space-y-4">
           <Button
             disabled={pending}
-            onClick={() => {
-              handlerGithubSignin("github");
-            }}
-            size={"lg"}
-            className="relative w-full bg-white text-black hover:bg-white/90"
+            onClick={handlerGithubSignin}
+            size="lg"
+            className="w-full relative bg-white text-black hover:bg-white/90"
           >
-            <FaGithubAlt className="absolute left-2.5 top-3 size-5" />
-            Continue with github
+            <FaGithubAlt className="absolute left-3 h-5 w-5" />
+            Continue with GitHub
           </Button>
-          <p className="text-xs text-muted-foreground">
-            Don&apos;t have an account?{" "}
-            <span
-              className="cursor-pointer text-sky-700 hover:underline"
+          <p className="text-center text-sm text-gray-400">
+            Don't have an account?{" "}
+            <button
               onClick={() => setState("signUp")}
+              className="text-[#00b894] hover:underline focus:outline-none"
             >
               Sign up
-            </span>
+            </button>
           </p>
         </div>
       </CardContent>

@@ -1,6 +1,6 @@
 "use client";
-import { useState } from "react";
-import { useRouter } from "next/router";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { SignInFlow } from "@/types/auth-types";
 import { signIn } from "next-auth/react";
 import {
@@ -26,63 +26,87 @@ export default function SignupCard({setFormType: setState}: SignupCardProps){
     const [confirmPassword, setConfirmPassword] = useState("");
     const [error, setError] = useState("");
     const [pending, setPending] = useState(false);
+    const [mounted, setMounted] = useState(false);
     const router = useRouter();
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
+    const handleAuthSuccess = () => {
+        if (mounted) {
+            router.push("/home");
+            router.refresh();
+        }
+    };
 
     const signUpWithProvider = async (provider: "github" | "credentials") => {
         try {
-            if(provider === "credentials"){
-                const res = signIn(provider, {
+            setPending(true);
+
+            if (provider === "credentials") {
+                // First create the user
+                const createUserResponse = await fetch('/api/auth/signup', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password }),
+                });
+
+                if (!createUserResponse.ok) {
+                    const data = await createUserResponse.json();
+                    throw new Error(data.error || 'Failed to sign up');
+                }
+
+                // Then sign in
+                const res = await signIn("credentials", {
+                    redirect: false,
                     email,
                     password,
+                    callbackUrl: "/home",
+                });
+
+                if (res?.error) {
+                    setError(res.error);
+                } else {
+                    handleAuthSuccess();
+                }
+            }
+
+            if (provider === "github") {
+                const res = await signIn("github", {
                     redirect: false,
                     callbackUrl: "/home",
                 });
-                res.then((res)=>{
-                    if(res?.error){
-                        setError(res.error);
-                    }
-                    if(!res?.error){
-                        router.push("/");
-                    }
-                    setPending(false);
-                });
+
+                if (res?.error) {
+                    setError(res.error);
+                } else {
+                    handleAuthSuccess();
+                }
             }
-            if(provider === "github"){
-                const res = signIn(provider, {
-                    redirect: false,
-                    callbackUrl: "/home"
-                });
-                res.then((res)=>{
-                    if(res?.error){
-                        setError(res.error);
-                    }
-                    if(!res?.error){
-                        router.push("/");
-                    }   
-                    setPending(false);
-                })
-            }
-        }catch(e){
+        } catch (e) {
             console.error(e);
+            setError(e instanceof Error ? e.message : "An unexpected error occurred");
+        } finally {
+            setPending(false);
         }
     }
 
-    const handleCredentialSignup = (e: React.FormEvent<HTMLFormElement>)=>{
+    const handleCredentialSignup = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         setError("");
-        setPending(true);
-        if(password !== confirmPassword){
+
+        if (password !== confirmPassword) {
             setError("Passwords do not match");
-            setPending(false);
             return;
         }
-        signUpWithProvider("credentials");
+
+        await signUpWithProvider("credentials");
     }
 
-    const handleGitHubSignUp = (provider: "github")=>{
+    const handleGitHubSignUp = async () => {
         setError("");
-        setPending(true);
-        signUpWithProvider("github");
+        await signUpWithProvider("github");
     }
 
     return (
@@ -140,9 +164,7 @@ export default function SignupCard({setFormType: setState}: SignupCardProps){
         <div className="flex flex-col items-center gap-y-2.5">
           <Button
             disabled={pending}
-            onClick={() => {
-              handleGitHubSignUp("github");
-            }}
+            onClick={handleGitHubSignUp}
             size={"lg"}
             className="relative w-full bg-white text-black hover:bg-white/90"
           >
