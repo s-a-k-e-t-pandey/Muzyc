@@ -5,6 +5,12 @@ import { emailSchema, passwordSchema } from "@/schema/Credentials-schema";
 import bcrypt from "bcryptjs";
 import { NextAuthOptions } from "next-auth";
 
+interface ExtendedUser {
+    id: string;
+    email: string;
+    name?: string | null;
+}
+
 export const authOptions: NextAuthOptions = {
     providers: [
         GitHubProvider({
@@ -78,21 +84,39 @@ export const authOptions: NextAuthOptions = {
     },
     debug: process.env.NODE_ENV === "development",
     session: {
-        strategy: "jwt"
+        strategy: "jwt",
+        maxAge: 30 * 24 * 60 * 60, // 30 days
     },
     callbacks: {
         async jwt({ token, user }) {
-            if (user) {
+            if (user && typeof user.id === 'string' && typeof user.email === 'string') {
                 token.id = user.id;
+                token.email = user.email;
             }
             return token;
         },
         async session({ session, token }) {
             if (session.user) {
                 session.user.id = token.id as string;
+                session.user.email = token.email as string;
             }
             return session;
         }
     },
     secret: process.env.NEXTAUTH_SECRET
 };
+
+// Add type declaration merging for next-auth
+declare module "next-auth" {
+    interface User extends ExtendedUser {}
+    interface Session {
+        user: ExtendedUser;
+    }
+}
+
+declare module "next-auth/jwt" {
+    interface JWT {
+        id: string;
+        email: string;
+    }
+}

@@ -1,5 +1,5 @@
 import { useSession } from "next-auth/react";
-import { useRouter } from "next/router";
+import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
 
@@ -9,7 +9,7 @@ export default function useRedirect(){
 
     useEffect(()=>{
         if(session.status === "unauthenticated"){
-            router.push("/");
+            router.push("/auth");
         }
-    }, [session])
+    }, [session, router])
 }

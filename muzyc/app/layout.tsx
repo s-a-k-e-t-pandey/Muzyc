@@ -3,6 +3,8 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { Providers, ThemeProvider } from "../components/providers";
 import { Toaster } from "sonner";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/lib/auth-options";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -36,11 +38,13 @@ export const metadata: Metadata = {
   ],
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const session = await getServerSession(authOptions);
+
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.className} bg-[#1b1934b2]`}>
@@ -51,7 +55,7 @@ export default function RootLayout({
           disableTransitionOnChange
           enableSystem
         >
-          <Providers>{children}</Providers>
+          <Providers session={session}>{children}</Providers>
         </ThemeProvider>
       </body>
     </html>
