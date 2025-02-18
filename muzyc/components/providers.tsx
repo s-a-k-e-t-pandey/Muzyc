@@ -7,12 +7,12 @@ import { SessionProvider } from "next-auth/react";
 import { ThemeProvider as NextThemesProvider } from "next-themes";
 import { type ThemeProviderProps } from "next-themes/dist/types";
 
-export function Providers({ children }: { children: React.ReactNode }) {
+export function Providers({ children, session }: { children: React.ReactNode, session: any }) {
   return (
     <ConnectionProvider endpoint={"https://api.devnet.solana.com"}>
         <WalletProvider wallets={[]} autoConnect>
             <WalletModalProvider>
-              <SessionProvider>
+              <SessionProvider session={session}>
                 <SocketContextProvider>{children}</SocketContextProvider>
               </SessionProvider>
             </WalletModalProvider>
