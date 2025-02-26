@@ -34,7 +34,7 @@ class RoomManager {
     public prisma : PrismaClient;
     public worker : Worker;
     public queue : Queue;
-    public wstoSpace : Map<string, string>;
+    public wstoSpace : Map<WebSocket, string>;
 
     constructor(){
         this.spaces = new Map();
@@ -92,6 +92,189 @@ class RoomManager {
             )
         }
     }
+
+    async initRedisClient(){
+        await this.redisClient.connect(),
+        await this.subscribers.connect(),
+        await this.publisher.connect()
+    }
+
+    onSubscribeRoom(message: string, spaceId: string){
+      console.log("Subscribe Room", spaceId);
+      const {type, data} = JSON.parse(message);
+      if(type == 'new-stream'){
+        RoomManager.getInstance().publishStream(spaceId, data);
+      }  else if (type === "new-vote") {
+        RoomManager.getInstance().publishNewVote(
+          spaceId,
+          data.streamId,
+          data.vote,
+          data.votedBy
+        );
+      } else if (type === "play-next") {
+        RoomManager.getInstance().publishPlayNext(spaceId);
+      } else if (type === "remove-song") {
+        RoomManager.getInstance().publishRemoveSong(spaceId, data.streamId);
+      } else if (type === "empty-queue") {
+        RoomManager.getInstance().publishEmptyQueue(spaceId);
+      }
+    }
+
+    async createRoom(spaceId: string){
+      console.log(process.pid + "createRoom: " {spaceId});
+      if(!this.spaces.has(spaceId)){
+        this.spaces.set(spaceId, {
+          users: new Map<string, User>(),
+          creatorId: ""
+        });
+        await this.subscribers.subscribe(spaceId, this.onSubscribeRoom);
+      }
+    }
+
+
+    async addUser(userId: string, ws: WebSocket, token: string) {
+      let user = this.users.get(userId);
+      if (!user) {
+        this.users.set(userId, {
+          userId,
+          ws: [ws],
+          token,
+        });
+      } else {
+        if (!user.ws.some((existingWs) => existingWs === ws)) {
+          user.ws.push(ws);
+        }
+      }
+    }
+
+
+    async joinRoom(
+      spaceId: string,
+      creatorId: string,
+      userId: string,
+      ws: WebSocket,
+      token: string
+    ) {
+      console.log("Join Room" + spaceId);
+  
+      let space = this.spaces.get(spaceId);
+      let user = this.users.get(userId);
+  
+      if (!space) {
+        await this.createRoom(spaceId);
+        space = this.spaces.get(spaceId);
+      }
+  
+      if (!user) {
+        await this.addUser(userId, ws, token);
+        user = this.users.get(userId);
+      } else {
+        if (!user.ws.some((existingWs) => existingWs === ws)) {
+          user.ws.push(ws);
+        }
+      }
+  
+      this.wstoSpace.set(ws, spaceId);
+  
+      if (space && user) {
+        space.users.set(userId, user);
+        this.spaces.set(spaceId, {
+          ...space,
+          users: new Map(space.users),
+          creatorId: creatorId,
+        });
+      }
+    }
+
+
+    publishEmptyQueue(spaceId: string){
+      console.log(process.pid + ": publishEmptyQueue");
+      const space = this.spaces.get(spaceId)
+      if(space){
+        space?.users.forEach((user, userId)=>{
+          user?.ws.forEach((ws)=>{
+            ws.send(
+              JSON.stringify({
+                type: `empty-queue/${spaceId}`
+              })
+            )
+          })
+        })
+      }
+    }
+
+    publishRemoveSong(spaceId: string, streamId: string){
+      console.log(process.pid + ": publisRemoveSong");
+      const space = this.spaces.get(spaceId);
+      space?.users.forEach((user, userId)=>{
+        user?.ws.forEach((ws)=>{
+          ws.send(
+            JSON.stringify({
+              type: `remove-song/${spaceId}`,
+              data: {
+                streamId,
+                spaceId
+              }
+            })
+          );
+        });
+      });
+    }
+
+    publishPlayNext(spaceId: string){
+      console.log(process.pid + ": PublishPlayNext");
+      const space = this.spaces.get(spaceId);
+      if(space){
+        space?.users.forEach((user, userId)=>{
+          user?.ws.forEach((ws)=>{
+            JSON.stringify({
+              type: `play-next/${spaceId}`
+            })
+          })
+        })
+      }
+    }
+
+    publishNewVote(spaceId: string, streamId: string, vote: 'upvote'|'downvote', votedBy: string){
+      console.log(process.pid + ": publishNewVote");
+      const spaces = this.spaces.get(spaceId);
+      if(spaces){
+        spaces?.users.forEach((user, userId)=>{
+          user?.ws.forEach((ws)=>{
+            ws.send(
+              JSON.stringify({
+                type: `new-vote/${spaceId}`,
+                data: {
+                  vote,
+                  streamId,
+                  votedBy,
+                  spaceId
+                }
+              })
+            )
+          })
+        })
+      }
+    }
+
+    publishStream(spaceId: string, data: any){
+      console.log(process.pid + ": publishNewStream");
+      console.log("Publish New Stream", spaceId);
+      const space = this.spaces.get(spaceId);
+      if(space){
+        space?.users.forEach((user, userId)=>{
+          user?.ws.forEach((ws)=>{
+            ws.send(
+              JSON.stringify({
+                type: `new-stream/${spaceId}`,
+                data: data
+              })
+            );
+          });
+        });
+      }
+    }
+
     async adminCastVote(
         creatorId : string,
         userId : string,
@@ -359,26 +542,26 @@ class RoomManager {
 
     async adminEmptyQueue(spaceId: string){
         const room = this.spaces.get(spaceId);
-    const userId = this.spaces.get(spaceId)?.creatorId;
-    const user = this.users.get(userId as string);
+        const userId = this.spaces.get(spaceId)?.creatorId;
+        const user = this.users.get(userId as string);
 
-    if (room && user) {
-        await this.prisma.stream.updateMany({
-            where: {
-            played: false,
-            spaceId: spaceId,
-            },
-            data: {
-            played: true,
-            playedTs: new Date(),
-            },
-        });
-        await this.publisher.publish(
-            spaceId,
-            JSON.stringify({
-            type: "empty-queue",
-            })
-        );
+        if (room && user) {
+            await this.prisma.stream.updateMany({
+                where: {
+                played: false,
+                spaceId: spaceId,
+                },
+                data: {
+                played: true,
+                playedTs: new Date(),
+                },
+            });
+            await this.publisher.publish(
+                spaceId,
+                JSON.stringify({
+                type: "empty-queue",
+                })
+            );
         }
     }
 }
@@ -392,7 +575,7 @@ type User = {
 
 type Space = {
     creatorId : string;
-    users : Map<string, string>;
+    users : Map<string, User>;
 }
 
 
