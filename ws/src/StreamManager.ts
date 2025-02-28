@@ -1,7 +1,7 @@
 import {createClient, RedisClientType} from "redis";
 import {PrismaClient} from "@prisma/client";
 import {Worker, Queue, Job} from "bullmq";
-import { getVideoId } from "./utils";
+import { getVideoId, isValidYoutubeURL } from "./utils";
 // @ts-ignore
 import youtubesearchapi from "youtube-search-api"
 
@@ -24,7 +24,7 @@ const redisCredentials = {
 }
 
 
-class RoomManager {
+export class RoomManager {
     private static instance : RoomManager;
     public spaces : Map<string, Space>;
     public users : Map<string, User>;
@@ -103,7 +103,7 @@ class RoomManager {
       console.log("Subscribe Room", spaceId);
       const {type, data} = JSON.parse(message);
       if(type == 'new-stream'){
-        RoomManager.getInstance().publishStream(spaceId, data);
+        RoomManager.getInstance().publishNewStream(spaceId, data);
       }  else if (type === "new-vote") {
         RoomManager.getInstance().publishNewVote(
           spaceId,
@@ -121,7 +121,7 @@ class RoomManager {
     }
 
     async createRoom(spaceId: string){
-      console.log(process.pid + "createRoom: " {spaceId});
+      console.log(process.pid + "createRoom: " + {spaceId});
       if(!this.spaces.has(spaceId)){
         this.spaces.set(spaceId, {
           users: new Map<string, User>(),
@@ -257,7 +257,7 @@ class RoomManager {
       }
     }
 
-    publishStream(spaceId: string, data: any){
+    publishNewStream(spaceId: string, data: any){
       console.log(process.pid + ": publishNewStream");
       console.log("Publish New Stream", spaceId);
       const space = this.spaces.get(spaceId);
@@ -505,38 +505,39 @@ class RoomManager {
     }
     
     async adminRemoveSong(spaceId: string, userId: string, streamId: string){
-        const user = await this.users.get(userId);
-        const creatorId = await this.spaces.get(spaceId)?.creatorId;
+        console.log("AdminRemovedSong");
+        const user = this.users.get(userId);
+        const creatorId = this.spaces.get(spaceId)?.creatorId;
 
-        if(user || userId == creatorId){
+        if(user && userId == creatorId){
             await this.prisma.stream.delete({
                 where: {
                     id: userId,
                     spaceId : spaceId
                 }
-            })
+            });
 
             await this.publisher.publish(
                 spaceId,
                 JSON.stringify({
-                    type: "remove-song",
-                    data: {
-                        streamId,
-                        userId
-                    }
-                })
-            )
-        }else {
-            user?.ws.forEach((ws) => {
-              ws.send(
-                JSON.stringify({
-                  type: "error",
+                  type: "remove-song",
                   data: {
-                    message: "You cant remove the song . You are not the host",
+                      streamId,
+                      userId
                   },
                 })
-              );
-            });
+            );
+        }else {
+          user?.ws.forEach((ws) => {
+            ws.send(
+              JSON.stringify({
+                type: "error",
+                data: {
+                  message: "You cant remove the song . You are not the host",
+                },
+              })
+            );
+          });
         }
     }
 
@@ -564,8 +565,175 @@ class RoomManager {
             );
         }
     }
-}
 
+    async castVote(
+      userId : string,
+      streamId: string,
+      vote: "upvote" | "downvote",
+      spaceId : string
+    ){
+      console.log(process.pid + ": Cast_Vote");
+      const space = this.spaces.get(spaceId);
+      const currentUser = this.users.get(userId);
+      const creatorId = this.spaces.get(spaceId)?.creatorId;
+      const isCreator = currentUser?.userId === creatorId;
+      if(!space || !currentUser){
+        return;
+      }
+      if(!isCreator){
+        const lastVoted = await this.redisClient.get(
+          `lastVoted-${spaceId}-${userId}`
+        );
+        if(lastVoted){
+          currentUser?.ws.forEach((ws)=>{
+            ws.send(
+              JSON.stringify({
+                type: 'error',
+                data: {
+                  message: "You can vote after 20 min"
+                },
+              })
+            );
+          });
+          return;
+        }
+      }
+      await this.queue.add('cast-vote', {
+        creatorId,
+        userId, 
+        streamId,
+        vote,
+        spaceId
+      });
+    }
+
+    async addToQueue(spaceId: string, currentUserId: string, url: string) {
+      console.log(process.pid + ": addToQueue");
+  
+      const space = this.spaces.get(spaceId);
+      const currentUser = this.users.get(currentUserId);
+      const creatorId = this.spaces.get(spaceId)?.creatorId;
+      const isCreator = currentUserId === creatorId;
+  
+      if (!space || !currentUser) {
+        console.log("433: Room or User not defined");
+        return;
+      }
+  
+      if (!isValidYoutubeURL(url)) {
+        currentUser?.ws.forEach((ws) => {
+          ws.send(
+            JSON.stringify({
+              type: "error",
+              data: { message: "Invalid YouTube URL" },
+            })
+          );
+        });
+        return;
+      }
+  
+      let previousQueueLength = parseInt(
+        (await this.redisClient.get(`queue-length-${spaceId}`)) || "0",
+        10
+      );
+  
+      // Checking if its zero that means there was no record in
+      if (!previousQueueLength) {
+        previousQueueLength = await this.prisma.stream.count({
+          where: {
+            spaceId: spaceId,
+            played: false,
+          },
+        });
+      }
+  
+      if (!isCreator) {
+        let lastAdded = await this.redisClient.get(
+          `lastAdded-${spaceId}-${currentUserId}`
+        );
+  
+        if (lastAdded) {
+          currentUser.ws.forEach((ws) => {
+            ws.send(
+              JSON.stringify({
+                type: "error",
+                data: {
+                  message: "You can add again after 20 min.",
+                },
+              })
+            );
+          });
+          return;
+        }
+        let alreadyAdded = await this.redisClient.get(`${spaceId}-${url}`);
+  
+        if (alreadyAdded) {
+          currentUser.ws.forEach((ws) => {
+            ws.send(
+              JSON.stringify({
+                type: "error",
+                data: {
+                  message: "This song is blocked for 1 hour",
+                },
+              })
+            );
+          });
+          return;
+        }
+  
+        if (previousQueueLength >= MAX_QUEUE_LENGTH) {
+          currentUser.ws.forEach((ws) => {
+            ws.send(
+              JSON.stringify({
+                type: "error",
+                data: {
+                  message: "Queue limit reached",
+                },
+              })
+            );
+          });
+          return;
+        }
+      }
+  
+      await this.queue.add("add-to-queue", {
+        spaceId,
+        userId: currentUser.userId,
+        url,
+        existingActiveStream: previousQueueLength,
+      });
+    }
+
+    disconnect(ws: WebSocket) {
+      console.log(process.pid + ": disconnect");
+      let userId: string | null = null;
+      const spaceId = this.wstoSpace.get(ws);
+      this.users.forEach((user, id) => {
+        const wsIndex = user.ws.indexOf(ws);
+  
+        if (wsIndex !== -1) {
+          userId = id;
+          user.ws.splice(wsIndex, 1);
+        }
+        if (user.ws.length === 0) {
+          this.users.delete(id);
+        }
+      });
+  
+      if (userId && spaceId) {
+        const space = this.spaces.get(spaceId);
+        if (space) {
+          const updatedUsers = new Map(
+            Array.from(space.users).filter(([usrId]) => userId !== usrId)
+          );
+          this.spaces.set(spaceId, {
+            ...space,
+            users: updatedUsers,
+          });
+        }
+      }
+    }
+}
 
 type User = {
     userId : string;
