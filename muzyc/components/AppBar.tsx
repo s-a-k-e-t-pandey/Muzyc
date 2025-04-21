@@ -16,7 +16,7 @@ export function Appbar({ showThemeSwitch = true, isSpectator = false }) {
     <motion.div 
       initial={{ y: -20, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
-      className="flex justify-between items-center h-full w-full"
+      className="flex justify-between items-center h-full w-full pt-2 px-2"
     >
       <motion.div
         whileHover={{ scale: 1.05 }}
@@ -67,7 +67,7 @@ export function Appbar({ showThemeSwitch = true, isSpectator = false }) {
         {session.data?.user ? (
           <motion.div whileHover={{ scale: 1.05 }}>
             <Button
-              className="bg-gradient-to-r from-purple-600 to-cyan-500 text-white hover:opacity-90 rounded-full px-6"
+              className="bg-gradient-to-r from-purple-600 to-cyan-500 text-white hover:opacity-90 rounded-full sm:2pl px-6"
               onClick={() => signOut({ callbackUrl: "/" })}
             >
               Logout
@@ -100,7 +100,7 @@ export function Appbar({ showThemeSwitch = true, isSpectator = false }) {
         )}
         
         {showThemeSwitch && (
-          <motion.div whileHover={{ scale: 1.05 }}>
+          <motion.div className="text-gray-400/40" whileHover={{ scale: 1.05 }}>
             <ThemeSwitcher />
           </motion.div>
         )}

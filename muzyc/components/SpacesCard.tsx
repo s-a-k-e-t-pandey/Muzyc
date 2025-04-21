@@ -60,7 +60,7 @@ export default function SpacesCard({
             whileHover={{ scale: 1.04 }}
             transition={{ duration: 0.4 }}
           >
-            {/* <Image
+            <Image
               src={
                 "https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?q=80&w=2940&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
               }
@@ -68,7 +68,7 @@ export default function SpacesCard({
               layout="fill"
               objectFit="cover"
               className="rounded-t-2xl"
-            /> */}
+            />
             <motion.div
               className="absolute inset-0 bg-gradient-to-t from-gray-900 via-gray-900/70 to-transparent"
               initial={{ opacity: 0 }}

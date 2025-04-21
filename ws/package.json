@@ -4,7 +4,9 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node dist/app.js",
+    "build": "tsc -b",
+    "dev": "ts-node-dev --respawn src/app.ts"
   },
   "keywords": [],
   "author": "",
@@ -24,6 +26,8 @@
     "youtube-search-api": "^1.2.2"
   },
   "devDependencies": {
-    "@types/dotenv": "^8.2.3"
+    "@types/dotenv": "^8.2.3",
+    "typescript": "^5.0.0",
+    "ts-node-dev": "^2.0.0"
   }
 }

@@ -106,17 +106,4 @@ export const authOptions: NextAuthOptions = {
     secret: process.env.NEXTAUTH_SECRET
 };
 
-// Add type declaration merging for next-auth
-declare module "next-auth" {
-    interface User extends ExtendedUser {}
-    interface Session {
-        user: ExtendedUser;
-    }
-}
 
-declare module "next-auth/jwt" {
-    interface JWT {
-        id: string;
-        email: string;
-    }
-}
