@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-
+import { SplashCursor } from "../ui/splash-cursor";
 import "react-lite-youtube-embed/dist/LiteYouTubeEmbed.css";
 
 import { useSocket } from "@/context/socket-context";
@@ -10,6 +10,9 @@ import NowPlaying from "./NowPlaying";
 import Queue from "./Queue";
 import AddSongForm from "./AddSongForm";
 import { Appbar } from "../AppBar";
+import { SplineScene } from "../ui/spline-scene";
+import { Spotlight } from "../ui/spotlight";
+import { Card } from "../ui/card";
 
 export default function StreamView({
   creatorId,
@@ -123,7 +126,14 @@ export default function StreamView({
   
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-screen flex-col bg-black"
+      style={{
+        backgroundImage: `radial-gradient(circle at 1px 1px, rgba(220, 236, 239, 0.2) 0.5px, transparent 0)`,
+        backgroundSize: "8px 8px",
+        backgroundRepeat: "repeat",
+      }}>
+      <SplashCursor />
+
       <Appbar isSpectator={!playVideo} />
       <div className="mx-auto rounded-lg p-2 bg-gradient-to-r from-indigo-600 to-violet-800 text-2xl font-bold">
         {spaceName}
@@ -139,6 +149,20 @@ export default function StreamView({
           />
           <div className="col-span-2">
             <div className="mx-auto w-full max-w-4xl space-y-6 p-4">
+              <Card className="w-full h-[300px] bg-black/[0.96] relative overflow-hidden">
+                <Spotlight
+                  className="-top-40 left-0 md:left-60 md:-top-20"
+                  fill="white"
+                />
+                <div className="flex h-full">
+                  <div className="relative flex-1">
+                    <SplineScene 
+                      scene="https://prod.spline.design/kZDDjO5HuC9GJUM2/scene.splinecode"
+                      className="w-full h-full"
+                    />
+                  </div>
+                </div>
+              </Card>
               <AddSongForm
                 creatorId={creatorId}
                 userId={user?.id || ""}
@@ -164,3 +188,4 @@ export default function StreamView({
     </div>
   );
 }
+

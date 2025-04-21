@@ -5,11 +5,10 @@ import dotenv from "dotenv";
 import jwt from "jsonwebtoken";
 import { sendError } from "./utils";
 // import os from "os";
-
 import { RoomManager } from "./StreamManager";
 
 dotenv.config();
-const cors = 1; // os.cpus().length  // for vertical scaling
+const cors = 1; // os.cpus().length  --> for vertical scaling
 
 if (cluster.isPrimary) {
   for (let i = 0; i < cors; i++) {
@@ -20,6 +19,7 @@ if (cluster.isPrimary) {
     process.exit();
   });
 } else {
+  console.log("reached at main starter");
   main();
 }
 
@@ -55,6 +55,7 @@ async function handleConnection(ws: WebSocket) {
   });
 
   ws.on("close", () => {
+    // @ts-ignore
     RoomManager.getInstance().disconnect(ws);
   });
 }

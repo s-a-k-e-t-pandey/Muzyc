@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "8080:8080"  # Changed to 8080 to match the default port in app.ts
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=root
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}  # Add your secret here
+      - PORT=8080
+    depends_on:
+      - redis
+    
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+    environment:
+      - REDIS_PASSWORD=root
+    command: ["redis-server", "--requirepass", "root"]

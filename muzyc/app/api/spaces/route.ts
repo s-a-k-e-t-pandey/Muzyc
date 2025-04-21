@@ -3,8 +3,6 @@ import prismaClient from "@/lib/db";
 import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
 
-
-
 export async function POST(req: NextRequest){
     try{
         const session = await getServerSession(authOptions);
@@ -49,7 +47,6 @@ export async function POST(req: NextRequest){
         );
     }
 }
-
 
 export async function DELETE(req: NextRequest){
     try{
@@ -104,42 +101,52 @@ export async function DELETE(req: NextRequest){
     }
 }
 
-
-
 export async function GET(req: NextRequest){
     try{
         const session = await getServerSession(authOptions);
-
         if(!session?.user?.id){
             return NextResponse.json(
                 {success: false, message: "You are not logged in to get spaces"},
                 {status: 401}
             )
         }
-
         const spaceId = req.nextUrl.searchParams.get("spaceId");
         if(spaceId){
+            console.log("Searching for space:", spaceId);
             const space = await prismaClient.space.findUnique({
                 where: {id: spaceId},
-                select: {hostId: true}
-            })
+                select: {
+                    id: true,
+                    name: true,
+                    hostId: true
+                }
+            });
 
             if(!space){
+                console.log(`Space not found: ${spaceId}`);
                 return NextResponse.json(
-                    {success: false, message: "Space not found"},
+                    {success: false, message: `Space not found: ${spaceId}`},
                     {status: 404}
                 )
             }
 
+            console.log("Found space:", space);
             return NextResponse.json(
-                {success: true, message: "Host id Retrieved successfully", space},
+                {success: true, message: "Space retrieved successfully", space},
                 {status: 200}
             )
         }
 
+        // Get all spaces, not just ones where user is host
         const spaces = await prismaClient.space.findMany({
-            where: {hostId: session.user.id},
-        })
+            select: {
+                id: true,
+                name: true,
+                hostId: true
+            }
+        });
+        
+        console.log("Found spaces:", spaces.length);
         return NextResponse.json(
             {success: true, message: "Spaces retrieved successfully", spaces},
             {status: 200}

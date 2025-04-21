@@ -4,6 +4,7 @@ import {Worker, Queue, Job} from "bullmq";
 import { getVideoId, isValidYoutubeURL } from "./utils";
 // @ts-ignore
 import youtubesearchapi from "youtube-search-api"
+import WebSocket from "ws";
 
 
 const TIME_SPAN_FOR_VOTE = 1200000; // 20min
@@ -13,14 +14,13 @@ const MAX_QUEUE_LENGTH = 20;
 
 
 const connection = {
-    username : "default",
-    password : "default",
-    host: "localhost",
+    host: "redis", // Changed from localhost to Docker service name
     port: 6379,
+    password: "root"  // Added password from docker-compose.yml
 }
 
 const redisCredentials = {
-    url : `redis://${connection.username}:${connection.password}@${connection.host}:${connection.port}`,
+    url: `redis://:${connection.password}@${connection.host}:${connection.port}`,  // Updated Redis URL format
 }
 
 
@@ -155,10 +155,23 @@ export class RoomManager {
       ws: WebSocket,
       token: string
     ) {
-      console.log("Join Room" + spaceId);
+      console.log("Join Room " + spaceId);
   
       let space = this.spaces.get(spaceId);
       let user = this.users.get(userId);
+  
+      // Check if space exists in database first
+      const spaceExists = await this.prisma.space.findUnique({
+        where: { id: spaceId }
+      });
+
+      if (!spaceExists) {
+        ws.send(JSON.stringify({
+          type: "error",
+          data: { message: `Space not found: ${spaceId}` }
+        }));
+        return;
+      }
   
       if (!space) {
         await this.createRoom(spaceId);
